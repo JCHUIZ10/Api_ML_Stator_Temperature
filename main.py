@@ -37,6 +37,10 @@ predecirCU = PredecirTemperaturaCasoUso(cargarModeloCU, consultarStatusCU)
 # Cargar el modelo cuando inicie la API (una sola vez)
 cargarModeloCU.cargarModelo()
 
+@app.get("/")
+async def hola():
+   return {"message": "¡Hola, tu API está funcionando!"}
+
 @app.post("/predecir/")
 async def predecir_temperatura(input_data: InputData):
     """
