@@ -1,7 +1,6 @@
 # main.py
 import sys
 import os
-import joblib
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -37,11 +36,7 @@ predecirCU = PredecirTemperaturaCasoUso(cargarModeloCU, consultarStatusCU)
 # Cargar el modelo cuando inicie la API (una sola vez)
 cargarModeloCU.cargarModelo()
 
-@app.get("/")
-async def hola():
-   return {"message": "¡Hola, tu API está funcionando!"}
-
-@app.post("/predecir/")
+@app.post("/predecir/",tags=["Predicción de Temperatura del Estátor"])
 async def predecir_temperatura(input_data: InputData):
     """
     Endpoint para predecir la temperatura dado un conjunto de datos de entrada.
@@ -59,5 +54,5 @@ async def predecir_temperatura(input_data: InputData):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  
     uvicorn.run(app, host="0.0.0.0", port=8000)
