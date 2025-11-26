@@ -1,7 +1,5 @@
-import gdown
 import joblib
 import pickle
-import tempfile
 import os
 from typing import Optional
 
@@ -31,46 +29,14 @@ class CargarModeloRandomForestCasoUso(ICargarModeloCasoUso):
         self.__modeloPredictivo: Optional[ModeloPredictivo] = None
         self.__status = status
     
-    def __descargarYCargarArchivo(self, drive_id: str, nombre_archivo: str):
-        """
-        Descarga un archivo de Google Drive usando gdown y lo carga desde archivo temporal.
-        El archivo temporal se elimina automáticamente después de la carga.
-        
-        Args:
-            drive_id: ID del archivo en Google Drive
-            nombre_archivo: Nombre descriptivo del archivo (para logs)
-            
-        Returns:
-            Objeto cargado desde el archivo
-            
-        Raises:
-            Exception: Si hay error en la descarga o carga
-        """
-
-        tmp_path = None
+    def descargarYCargarArchivo(self,tmp_path: str, nombre_archivo: str):
         try:
-            # Crear archivo temporal
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as tmp:
-                tmp_path = tmp.name
-            
-            print(f"Descargando {nombre_archivo}...")
-            
-            # URL de descarga de Google Drive
-            url = f"https://drive.google.com/uc?id={drive_id}"
-            
-            # Descargar con gdown
-            gdown.download(url, tmp_path, quiet=False)
-            
             # Verificar que el archivo se descargó
             if not os.path.exists(tmp_path):
-                raise Exception(f"El archivo {nombre_archivo} no se descargó correctamente")
+                raise Exception(f"El archivo {nombre_archivo} no se encuentro")
             
-            # Obtener tamaño del archivo
-            file_size = os.path.getsize(tmp_path)
-
-            #Verificamos que no sea cero
-            if file_size == 0:
-                raise Exception(f"El archivo {nombre_archivo} está vacío")
+            # Cargar el objeto según el tipo
+            print(f"Cargando {nombre_archivo}...")
             
             if nombre_archivo.lower() == "escalador":
                 with open(tmp_path, 'rb') as f:
@@ -80,18 +46,8 @@ class CargarModeloRandomForestCasoUso(ICargarModeloCasoUso):
             
             print(f"✓ {nombre_archivo} cargado exitosamente")
             return obj
-            
         except Exception as e:
             raise Exception(f"Error al procesar {nombre_archivo}: {str(e)}")
-        
-        finally:
-            # Eliminar archivo temporal
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                    print(f"✓ Archivo temporal eliminado: {tmp_path}")
-                except Exception as e:
-                    print(f"⚠ No se pudo eliminar archivo temporal: {str(e)}")
     
     def cargarModelo(self) -> None:
         """
@@ -113,17 +69,11 @@ class CargarModeloRandomForestCasoUso(ICargarModeloCasoUso):
             
             # Descargar y cargar escalador
             print("\n[1/2] Procesando escalador...")
-            self.__escalador = self.__descargarYCargarArchivo(
-                self.__drive_ids["escalador"], 
-                "escalador"
-            )
+            self.__escalador = self.descargarYCargarArchivo(r"resources\escalador.pkl","escalador")
             
             # Descargar y cargar modelo
             print("\n[2/2] Procesando modelo...")
-            self.__modelo_rf = self.__descargarYCargarArchivo(
-                self.__drive_ids["modelo"], 
-                "modelo"
-            )
+            self.__modelo_rf = self.descargarYCargarArchivo(r"resources\modelo_random_forest.joblib","Random Forest")
             
             #Instanciamos el modelo Random Forest
             self.__modeloPredictivo = ModeloRandomForestRegressor(self.__modelo_rf,self.__escalador)
