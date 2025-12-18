@@ -1,16 +1,8 @@
-import gdown
-import joblib
-import pickle
-import tempfile
-import os
 from typing import Optional
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-
 from domain.entity.api_status import ApiStatus
 from aplication.cu.cargar_modelo_cu import ICargarModeloCasoUso
 from aplication.machine_learning.modelo_predictivo_port import ModeloPredictivo
+from aplication.service_port.iservicios_almacenamiento import IServicioAlmacenamiento
 
 from infraestructure.machine_learning.random_forest_regressor import ModeloRandomForestRegressor
 
@@ -19,79 +11,11 @@ class CargarModeloRandomForestCasoUso(ICargarModeloCasoUso):
     Caso de uso para cargar modelo RandomForest y escalador desde Google Drive.
     Utiliza gdown para descargas robustas y archivos temporales.
     """
-
-    # IDs de Google Drive
-    __drive_ids = {
-        "escalador": "1Xz4qMjrdkCdjpDyfqhsdIn5b-y4Aqm-R",
-        "modelo": "1H6p9MTZlXpN1MWRb6gPBUZdoVE9Zd1mf"
-    }
-    
-    def __init__(self,status : ApiStatus):
+    def __init__(self,status : ApiStatus, servicioAlmacenamiento:IServicioAlmacenamiento):
         """Inicializa las variables de instancia para mantener los objetos en memoria."""
         self.__modeloPredictivo: Optional[ModeloPredictivo] = None
         self.__status = status
-    
-    def __descargarYCargarArchivo(self, drive_id: str, nombre_archivo: str):
-        """
-        Descarga un archivo de Google Drive usando gdown y lo carga desde archivo temporal.
-        El archivo temporal se elimina automáticamente después de la carga.
-        
-        Args:
-            drive_id: ID del archivo en Google Drive
-            nombre_archivo: Nombre descriptivo del archivo (para logs)
-            
-        Returns:
-            Objeto cargado desde el archivo
-            
-        Raises:
-            Exception: Si hay error en la descarga o carga
-        """
-
-        tmp_path = None
-        try:
-            # Crear archivo temporal
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as tmp:
-                tmp_path = tmp.name
-            
-            print(f"Descargando {nombre_archivo}...")
-            
-            # URL de descarga de Google Drive
-            url = f"https://drive.google.com/uc?id={drive_id}"
-            
-            # Descargar con gdown
-            gdown.download(url, tmp_path, quiet=False)
-            
-            # Verificar que el archivo se descargó
-            if not os.path.exists(tmp_path):
-                raise Exception(f"El archivo {nombre_archivo} no se descargó correctamente")
-            
-            # Obtener tamaño del archivo
-            file_size = os.path.getsize(tmp_path)
-
-            #Verificamos que no sea cero
-            if file_size == 0:
-                raise Exception(f"El archivo {nombre_archivo} está vacío")
-            
-            if nombre_archivo.lower() == "escalador":
-                with open(tmp_path, 'rb') as f:
-                    obj = pickle.load(f)
-            else:  # modelo
-                obj = joblib.load(tmp_path)
-            
-            print(f"✓ {nombre_archivo} cargado exitosamente")
-            return obj
-            
-        except Exception as e:
-            raise Exception(f"Error al procesar {nombre_archivo}: {str(e)}")
-        
-        finally:
-            # Eliminar archivo temporal
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                    print(f"✓ Archivo temporal eliminado: {tmp_path}")
-                except Exception as e:
-                    print(f"⚠ No se pudo eliminar archivo temporal: {str(e)}")
+        self.__servicioAlmacenamiento : IServicioAlmacenamiento = servicioAlmacenamiento
     
     def cargarModelo(self) -> None:
         """
@@ -108,22 +32,12 @@ class CargarModeloRandomForestCasoUso(ICargarModeloCasoUso):
         
         try:
             print("=" * 60)
-            print("CARGANDO MODELO DESDE GOOGLE DRIVE")
+            print("CARGANDO MODELO DESDE LA NUBE")
             print("=" * 60)
             
             # Descargar y cargar escalador
-            print("\n[1/2] Procesando escalador...")
-            self.__escalador = self.__descargarYCargarArchivo(
-                self.__drive_ids["escalador"], 
-                "escalador"
-            )
-            
-            # Descargar y cargar modelo
-            print("\n[2/2] Procesando modelo...")
-            self.__modelo_rf = self.__descargarYCargarArchivo(
-                self.__drive_ids["modelo"], 
-                "modelo"
-            )
+            print("\n[1] Procesando escalador...")
+            self.__modelo_rf , self.__escalador = self.__servicioAlmacenamiento.descargar_modelo()
             
             #Instanciamos el modelo Random Forest
             self.__modeloPredictivo = ModeloRandomForestRegressor(self.__modelo_rf,self.__escalador)

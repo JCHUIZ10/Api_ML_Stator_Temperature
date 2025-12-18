@@ -1,0 +1,2 @@
+class ErrorPrediccionError(Exception):
+    pass
