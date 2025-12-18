@@ -1,0 +1,3 @@
+class ApiNoDisponibleError(Exception):
+    pass
+

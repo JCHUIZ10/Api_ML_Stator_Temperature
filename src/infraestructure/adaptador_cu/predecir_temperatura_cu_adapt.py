@@ -4,6 +4,7 @@ from domain.entity import Input, Output
 
 from aplication.cu.cargar_modelo_cu import ICargarModeloCasoUso
 from aplication.cu.consultar_status_api_cu import IConsultarStatusApiCasoUso
+from aplication.error import ApiNoDisponibleError, ErrorPrediccionError
 
 class PredecirTemperaturaCasoUso(IPredecirTemperaturaCasoUso):
     __cargarModeloCU : ICargarModeloCasoUso
@@ -14,11 +15,18 @@ class PredecirTemperaturaCasoUso(IPredecirTemperaturaCasoUso):
         self.__cargarModeloCU = cargarModeloCU
         self.__consultarStatusCU = consultarStatusCU
 
-    def predecir(self,dataEntrada:Input) -> Output|None:
-        try:  
-            if (self.__consultarStatusCU.getEstadoApi()):
-                modelo = self.__cargarModeloCU.getModelo()
-                out = modelo.ejecutar(dataEntrada)
-                return out
+    def predecir(self, dataEntrada: Input) -> Output | None:
+        try:
+            print("Estado API:", self.__consultarStatusCU.getEstadoApi())
+
+            if not self.__consultarStatusCU.getEstadoApi():
+                raise ApiNoDisponibleError("API no disponible para predicciones.")
+
+            modelo = self.__cargarModeloCU.getModelo()
+            out = modelo.ejecutar(dataEntrada)
+            return out
+
+        except ApiNoDisponibleError:
+            raise
         except Exception as e:
-            raise Exception(f"Error en PredecirTemperaturaCasoUso: {str(e)}") from e
+            raise ErrorPrediccionError(f"Error en PredecirTemperaturaCasoUso: {str(e)}") from e
