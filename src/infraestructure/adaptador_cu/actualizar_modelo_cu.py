@@ -1,8 +1,6 @@
 from aplication.service_port.pipeline_autoentrenamiento import PipelineAutoentrenamiento
 from aplication.cu.cargar_modelo_cu import ICargarModeloCasoUso
 
-
-
 class ActualizarModeloCasoUso:
 
     def __init__(self,autoentrenamiento: PipelineAutoentrenamiento,cargarModelo : ICargarModeloCasoUso ):
