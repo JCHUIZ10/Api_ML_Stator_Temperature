@@ -135,13 +135,8 @@ class GestorDropbox(IServicioAlmacenamiento):
                 self.NOMBRE_SCALER,
                 self.RUTA_PRODUCCION
             )
-
-            print("\n Despliegue de Producción COMPLETO.")
             return True
-
-        except Exception:
-            print("El despliegue falló. Revisar el error anterior.")
-            return False
+        except Exception: return False
 
 
     def _subir_objeto(self, objeto, nombre_archivo: str, ruta_base: str):

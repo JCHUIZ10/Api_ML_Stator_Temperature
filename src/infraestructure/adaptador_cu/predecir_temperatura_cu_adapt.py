@@ -17,8 +17,6 @@ class PredecirTemperaturaCasoUso(IPredecirTemperaturaCasoUso):
 
     def predecir(self, dataEntrada: Input) -> Output | None:
         try:
-            print("Estado API:", self.__consultarStatusCU.getEstadoApi())
-
             if not self.__consultarStatusCU.getEstadoApi():
                 raise ApiNoDisponibleError("API no disponible para predicciones.")
 

@@ -1,7 +1,7 @@
-
 from typing import Tuple
 import pandas as pd
 import numpy as np
+import logging
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
@@ -13,6 +13,8 @@ from src.infraestructure.repository.train_dataset import RepositoryPosgrestTrain
 from src.infraestructure.service_adapt.service_dropbox import GestorDropbox
 from src.infraestructure.service_adapt.service_correo_gmail import ServiceCorreoGmail
 from src.aplication.service_port.pipeline_autoentrenamiento import PipelineAutoentrenamiento
+
+logger = logging.getLogger(__name__)
 
 class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
 
@@ -41,26 +43,36 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
     
     def star(self) -> bool:
         try:
+            logger.info("Se inicializo el proceso de autoentrenamiento")
             df = self.repositoryTrain.obtener_data_train()
+            logger.info("Se obtuvo la dataset exitosamente")
+
             X_train_scaled, X_test, y_train, y_test = self.__preprocesar(df) # type: ignore
+            logger.info("Culiminación exitosa del preprocesamiento")
+
             self.modelo = self.__entrenar(X_train_scaled,y_train)
+            logger.info("Culiminación exitosa del proceso de entrenamiento")
+
             modelo_old, scalar_old = self.gestorAlmacenamiento.descargar_modelo()
+            logger.info("Obtención exitosa del modelo y escalador actuales en produccion")
+
             X_train_scaled, X_test, y_train, y_test = self.__preprocesar(df) # type: ignore
             respuesta:bool = self.evaluar_modelo_nuevo(modelo_old, self.modelo, scalar_old, self.escalador, X_test, y_test)
 
             if respuesta:
+                logger.info("El 'nuevo modelo' es mejor, sera actualizado a producción")
                 self.gestorAlmacenamiento.subir_a_dropbox_a_produccion(self.modelo, self.escalador)
                 self.servicioCorreo.enviar_correo("Se actualizo exitosamente el modelo de prediccion") 
             else:
+                logger.info("El 'nuevo modelo' es no es mejor, se mantendra el modelo actual en producción")
                 self.servicioCorreo.enviar_correo("Se finalizo exitosamente el proceso de auto-entrenamiento, pero no se actualizo") 
             
             return respuesta
         except Exception as e:
+            logger.error("ERROR : {e}")
             self.servicioCorreo.enviar_correo("Sucedio un error en el proceso de auto-entrenamiento") 
-            print("ERROR : {e}")
             return False
 
-    
     def __preprocesar(self, df_vista:pd.DataFrame) -> Tuple[np.ndarray, pd.DataFrame, pd.Series, pd.Series]:
         #Eliminamos las columnas que no nos funcionaran
         dfClean = df_vista[self.columnas_deseadas]
@@ -74,8 +86,8 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
             X, y, test_size=0.2, random_state=42
         )
 
-        print(X_train.shape, y_train.shape)
-        print(X_test.shape, y_test.shape)
+        logger.info(X_train.shape, y_train.shape)
+        logger.info(X_test.shape, y_test.shape)
 
         #Instanciamos el scalador (normalizar Datos)
         self.escalador = StandardScaler()
@@ -85,7 +97,6 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
         return  X_train_scaled, X_test, y_train, y_test
     
     def __entrenar(self,X_train_scaled, y_train):
-        print("Comenzar Entrenamiento")
         model:RandomForestRegressor = RandomForestRegressor(
             n_estimators=200,   #cuántos árboles tendrá el bosque.
             max_depth=15,       #Qué tan profundo puede crecer cada árbol.
@@ -128,10 +139,10 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
         r2_new = r2_score(y_true, y_pred_new)
         rmse_new = np.sqrt(mean_squared_error(y_true, y_pred_new))
 
-        print("--- Resultados de la Evaluación ---")
-        print(f"Modelo Antiguo (Old) - R²: {r2_old:.4f}, RMSE: {rmse_old:.4f}")
-        print(f"Modelo Nuevo (New) - R²: {r2_new:.4f}, RMSE: {rmse_new:.4f}")
-        print("-----------------------------------")
+        logger.warning("--- Resultados de la Evaluación ---")
+        logger.warning(f"Modelo Antiguo (Old) - R²: {r2_old:.4f}, RMSE: {rmse_old:.4f}")
+        logger.warning(f"Modelo Nuevo (New) - R²: {r2_new:.4f}, RMSE: {rmse_new:.4f}")
+        logger.warning("-----------------------------------")
 
         # 4. Criterios de Decisión Sólidos
 
@@ -143,7 +154,7 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
 
         # El modelo nuevo es mejor si MEJORA en AMBOS criterios
         if mejora_r2 and mejora_rmse:
-            print("El Modelo Nuevo es MEJOR: Mejor R² Y menor RMSE.")
+            logger.info("El Modelo Nuevo es MEJOR: Mejor R² Y menor RMSE.")
             return True
 
         # Si mejora en uno y no empeora en el otro (con un umbral de tolerancia, ej: 0.1% de tolerancia)
@@ -156,9 +167,9 @@ class ServicioAutoentrenamiento(PipelineAutoentrenamiento):
         casi_igual_rmse = rmse_new <= rmse_old * (1 + tolerancia_porcentual)
 
         if (mejora_r2 and casi_igual_rmse) or (mejora_rmse and casi_igual_r2):
-            print("El Modelo Nuevo es SIMILAR: Mejora en una métrica y es casi igual en la otra.")
+            logger.info("El Modelo Nuevo es SIMILAR: Mejora en una métrica y es casi igual en la otra.")
             # En este caso, si la meta es solo 'True si es mejor', retornamos False
             return False
 
-        print("El Modelo Nuevo NO es mejor: No mejoró en ambas métricas clave.")
+        logger.info("El Modelo Nuevo NO es mejor: No mejoró en ambas métricas clave.")
         return False

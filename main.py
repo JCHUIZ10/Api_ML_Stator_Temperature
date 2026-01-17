@@ -20,6 +20,10 @@ from src.infraestructure.adaptador_cu.actualizar_modelo_cu import ActualizarMode
 from src.infraestructure.service_adapt.service_dropbox import GestorDropbox
 from src.infraestructure.service_adapt.servicio_autoentrenamiento import ServicioAutoentrenamiento
 
+from src.infraestructure.configuration.logging_config import setup_logging
+
+#Iniciamos el loggin
+setup_logging()
 
 # Iniciar la aplicación FastAPI
 app = FastAPI()
@@ -56,7 +60,7 @@ async def predecir_temperatura(input_data: InputData):
     Endpoint para predecir la temperatura dado un conjunto de datos de entrada.
     """
     try:
-        i1 = Input(**input_data.dict())
+        i1 = Input(**input_data.model_dump())
         resultado = predecirCU.predecir(i1)
 
         return {"temperatura_predicha": resultado}
